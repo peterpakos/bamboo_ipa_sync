@@ -53,7 +53,7 @@ class Bamboo(object):
                 fields[field.attrib['id']] = field.text
             self.__employees.update({employee.attrib['id']: fields})
         if len(self.__employees) == 0:
-            app.die('Bamboo data set is empty')
+            Main.die('Bamboo data set is empty')
 
     def display_data(self):
         for fields in self.__employees.itervalues():
@@ -197,6 +197,10 @@ class Ldap(object):
         return True
 
     def modify(self, dn, attr, old_value, new_value):
+        if not old_value:
+            old_value = ''
+        if not new_value:
+            new_value = ''
         old = {attr: old_value}
         new = {attr: new_value}
         ldif = modlist.modifyModlist(old, new)
@@ -210,7 +214,7 @@ class Ldap(object):
 
 
 class Main(object):
-    __version = '16.3.3'
+    __version = '16.3.4'
     __name = path.basename(argv[0])
     __cwd = path.dirname(path.abspath(argv[0]))
     __bamboo_url = None
@@ -317,7 +321,7 @@ class Main(object):
             self.die('No IPA servers specified (-H)')
 
         if self.__ipa_domain is None:
-            self.die('No domain specified (-d)')
+            self.die('No IPA domain specified (-d)')
 
         self.__ldap_server = self.__ipa_servers[0] + '.' + self.__ipa_domain
 
@@ -361,7 +365,9 @@ AVAILABLE OPTIONS:
                 bamboo_mobile_phone = bamboo_fields['mobilePhone']
                 result = self.ipa.mail_exists(bamboo_mail)
                 exists = False
+                printed = False
                 if len(result) == 0:
+                    printed = True
                     mail_uid = bamboo_mail.partition('@')[0]
                     print('%s: email found in Bamboo but not in LDAP:' % bamboo_mail)
                     print('- Checking if active user %s exists: ' % bamboo_uid, end='')
@@ -402,7 +408,7 @@ AVAILABLE OPTIONS:
                         else:
                             print('NO')
                     if exists:
-                        print('Account already exists, skipping account creation.')
+                        print('Account already exists, skipping account creation.\n')
                         continue
                     else:
                         print('Creating stage account %s: ' % bamboo_uid, end='')
@@ -424,27 +430,32 @@ AVAILABLE OPTIONS:
                         title = attrs.get('title')
                         if type(uid) in [list]:
                             uid = uid[0]
-                        if type(title) in [list]:
-                            title = title[0]
                         if type(mobile) in [list]:
                             mobile = mobile[0]
-                            if bamboo_mobile_phone != mobile:
-                                print('%s: updating mobile from \'%s\' to \'%s\': '
-                                      % (uid, mobile, bamboo_mobile_phone), end='')
-                                if self.ipa.modify(dn, 'mobile', mobile, bamboo_mobile_phone):
-                                    print('OK')
-                                else:
-                                    print('FAIL')
-                            if bamboo_job_title != title:
-                                print('%s: updating title from \'%s\' to \'%s\': '
-                                      % (uid, title, bamboo_job_title), end='')
-                                if self.ipa.modify(dn, 'title', title, bamboo_job_title):
-                                    print('OK')
-                                else:
-                                    print('FAIL')
 
+                        if bamboo_mobile_phone != mobile:
+                            printed = True
+                            print('%s: updating mobile from \'%s\' to \'%s\': '
+                                  % (uid, mobile, bamboo_mobile_phone), end='')
+                            if self.ipa.modify(dn, 'mobile', mobile, bamboo_mobile_phone):
+                                print('OK')
+                            else:
+                                print('FAIL')
+                        if type(title) in [list]:
+                            title = title[0]
+                        if bamboo_job_title != title:
+                            printed = True
+                            print('%s: updating title from \'%s\' to \'%s\': '
+                                  % (uid, title, bamboo_job_title), end='')
+                            if self.ipa.modify(dn, 'title', title, bamboo_job_title):
+                                print('OK')
+                            else:
+                                print('FAIL')
                 else:
+                    printed = True
                     print('More than one entry found in LDAP for email %s' % bamboo_mail, file=stderr)
+                if printed:
+                    print()
 
 
 if __name__ == '__main__':
