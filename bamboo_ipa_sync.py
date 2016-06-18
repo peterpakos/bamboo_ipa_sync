@@ -7,14 +7,16 @@
 # Author: Peter Pakos <peter.pakos@wandisco.com>
 
 from __future__ import print_function
-from sys import stderr, exit, argv
-from os import path
-from getopt import getopt, GetoptError
-from urllib2 import Request, urlopen, HTTPError, URLError
+
 from base64 import encodestring
-from xml.etree import ElementTree
-from ldap import initialize, SERVER_DOWN, NO_SUCH_OBJECT, INVALID_CREDENTIALS, SCOPE_SUBTREE, LDAPError, modlist
+from getopt import getopt, GetoptError
 from getpass import getpass
+from os import path
+from sys import stderr, exit, argv
+from urllib2 import Request, urlopen, HTTPError, URLError
+from xml.etree import ElementTree
+
+from ldap import initialize, SERVER_DOWN, NO_SUCH_OBJECT, INVALID_CREDENTIALS, SCOPE_SUBTREE, LDAPError, modlist
 
 
 class Bamboo(object):
@@ -33,8 +35,8 @@ class Bamboo(object):
     def fetch_employees(self):
         request = Request(self.__url)
         base64string = encodestring('%s:x' % (
-             self.__api_key
-         )).replace('\n', '')
+            self.__api_key
+        )).replace('\n', '')
         request.add_header('Authorization', 'Basic %s' % base64string)
         result = None
         try:
@@ -184,7 +186,7 @@ class Ldap(object):
         attrs['uidNumber'] = '-1'
         attrs['gidNumber'] = '707'
         attrs['title'] = title
-        attrs['mobile'] = mobile
+        attrs['mobile'] = mobile if mobile else ''
         attrs['mail'] = mail
         attrs['homeDirectory'] = '/home/' + uid
         attrs['loginShell'] = '/usr/sbin/nologin'
@@ -214,7 +216,7 @@ class Ldap(object):
 
 
 class Main(object):
-    __version = '16.3.4'
+    __version = '16.6.21'
     __name = path.basename(argv[0])
     __cwd = path.dirname(path.abspath(argv[0]))
     __bamboo_url = None
