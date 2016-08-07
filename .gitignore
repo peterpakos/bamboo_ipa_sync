@@ -1,4 +1,4 @@
-*.exclude
-*.url
-*.passwd
-*.key
+.idea
+*.pyc
+*.api
+config.py
