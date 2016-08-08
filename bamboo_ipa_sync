@@ -56,6 +56,8 @@ class Main(object):
         parser.add_argument('-l', '--ldap', help='print LDAP data and exit', dest='ldap', action='store_true')
         parser.add_argument('-b', '--bamboo', help='print Bamboo data and exit', dest='bamboo', action='store_true')
         parser.add_argument('-s', '--sync', help='synchronise LDAP with Bamboo', dest='sync', action='store_true')
+        parser.add_argument('-n', '--notification', help='send New Starter Notification', dest='notify',
+                            action='store_true')
         return parser, parser.parse_args()
 
     @staticmethod
@@ -122,7 +124,9 @@ class Main(object):
                             'customrequestedPhone',
                             'customrequestedLaptop',
                             'customrequestedMonitor',
-                            'location'
+                            'location',
+                            'customTeams',
+                            'customSystems'
                         ])
                         supervisor_email = self._bamboo.fetch_field(fields['supervisorEid'], ['workEmail'])
                         print('Creating stage LDAP account %s: ' % bamboo_uid, end='')
@@ -144,35 +148,42 @@ class Main(object):
                             print('FAIL')
                             user_created = False
                         print('Sending New Starter Notification: ', end='')
-                        message = '''<strong>Personal Information</strong>
+                        if not self._args.notify:
+                            print('NO')
+                            continue
+                        message = '''*Personal Information*
 Name: %s %s
 Home phone: %s
 Home email: %s
 Start Date: %s
 
-<strong>Department Information</strong>
+*Department Information*
+Division: %s
 Location: %s
 Department: %s
 Manager Name: %s
 Manager Email: %s
 
-<strong>Requirements</strong>
+*Requirements*
 Phone: %s
 Laptop: %s
 Monitor: %s
+Teams: %s
+Systems: %s
 
-<strong>Onboarding Notes</strong>
+*Onboarding Notes*
 %s
 
-<strong>LDAP uid:</strong> %s
+*LDAP uid:* %s
 
-<strong>Stage LDAP user created:</strong> %s
+*Stage LDAP user created:* %s
 ''' % (
                             bamboo_first_name,
                             bamboo_last_name,
                             fields['homePhone'],
                             fields['homeEmail'],
                             fields['hireDate'],
+                            bamboo_division,
                             fields['location'],
                             bamboo_dept,
                             fields['supervisor'],
@@ -180,9 +191,11 @@ Monitor: %s
                             fields['customrequestedPhone'],
                             fields['customrequestedLaptop'],
                             fields['customrequestedMonitor'],
+                            fields['customTeams'],
+                            fields['customSystems'],
                             fields['customonboardingNotes'],
                             bamboo_uid,
-                            'YES' if user_created else 'NO'
+                            'Yes' if user_created else 'No'
                         )
 
                         if self._mail.send(
