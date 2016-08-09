@@ -187,7 +187,7 @@ Systems: %s
                                 'New Starter Notification: %s %s' % (bamboo_fields['firstName'],
                                                                      bamboo_fields['lastName']),
                                 message,
-                                cc=['peter@pakos.uk'],
+                                cc=[supervisor_email],
                                 html=True
                         ) == 202:
                             print('OK')

@@ -1,4 +1,4 @@
 .idea
 *.pyc
 *.api
-config.py
+CONFIG.py
