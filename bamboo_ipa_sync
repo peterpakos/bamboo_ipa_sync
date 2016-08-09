@@ -8,44 +8,41 @@
 
 from __future__ import print_function
 
-import base64
 import os
 import sys
-import urllib2
-import xml.etree.ElementTree
 import argparse
-import ldap.modlist
-import prettytable
 
+import CONFIG
+import WDBamboo
+import WDLdap
 import WDMail
-from config import CONFIG
 
 
 class Main(object):
-    _version = '16.8.7'
+    _version = '16.8.9'
     _name = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):
         self._parser, self._args = self._parse_args()
-        self._bamboo_url = CONFIG.BAMBOO_URL
-        self._bamboo_api_key = CONFIG.BAMBOO_API_KEY
-        self._ipa_server = CONFIG.IPA_SERVER
-        self._bind_dn = CONFIG.BIND_DN
-        self._bind_pw = CONFIG.BIND_PW
-        self._bamboo_exclude_list = CONFIG.BAMBOO_EXCLUDE_LIST
+        self._bamboo_url = CONFIG.CONFIG.BAMBOO_URL
+        self._bamboo_api_key = CONFIG.CONFIG.BAMBOO_API_KEY
+        self._ipa_server = CONFIG.CONFIG.IPA_SERVER
+        self._bind_dn = CONFIG.CONFIG.BIND_DN
+        self._bind_pw = CONFIG.CONFIG.BIND_PW
+        self._bamboo_exclude_list = CONFIG.CONFIG.BAMBOO_EXCLUDE_LIST
         self._mail = WDMail.WDMail()
 
         if self._args.bamboo:
-            self._bamboo = Bamboo(self._bamboo_url, self._bamboo_api_key)
+            self._bamboo = WDBamboo.WDBamboo(self._bamboo_url, self._bamboo_api_key)
             self._bamboo.display_data()
         if self._args.ldap:
-            self._ldap = Ldap(self._ipa_server, self._bind_dn, self._bind_pw)
+            self._ldap = WDLdap.WDLdap(self._ipa_server, self._bind_dn, self._bind_pw)
             self._ldap.display_data()
         if self._args.bamboo or self._args.ldap:
             exit()
         if self._args.sync:
-            self._bamboo = Bamboo(self._bamboo_url, self._bamboo_api_key)
-            self._ldap = Ldap(self._ipa_server, self._bind_dn, self._bind_pw)
+            self._bamboo = WDBamboo.WDBamboo(self._bamboo_url, self._bamboo_api_key)
+            self._ldap = WDLdap.WDLdap(self._ipa_server, self._bind_dn, self._bind_pw)
             self.sync_data()
             exit()
         self._parser.print_help()
@@ -56,37 +53,24 @@ class Main(object):
         parser.add_argument('-l', '--ldap', help='print LDAP data and exit', dest='ldap', action='store_true')
         parser.add_argument('-b', '--bamboo', help='print Bamboo data and exit', dest='bamboo', action='store_true')
         parser.add_argument('-s', '--sync', help='synchronise LDAP with Bamboo', dest='sync', action='store_true')
-        parser.add_argument('-n', '--notification', help='send New Starter Notification', dest='notify',
+        parser.add_argument('-n', '--notification', help='send New Starter Notification (requires -s)', dest='notify',
                             action='store_true')
         return parser, parser.parse_args()
-
-    @staticmethod
-    def die(message=None, code=1):
-        if message is not None:
-            print(message, file=sys.stderr)
-        exit(code)
 
     def sync_data(self):
         directory = self._bamboo.get_directory()
         for bamboo_id, bamboo_fields in directory.items():
-            bamboo_mail = bamboo_fields['workEmail']
-            if bamboo_mail is not None and bamboo_mail not in self._bamboo_exclude_list:
-                bamboo_first_name = bamboo_fields['firstName']
-                bamboo_last_name = bamboo_fields['lastName']
-                bamboo_uid = bamboo_first_name.lower() + '.' + bamboo_last_name.lower()
-                bamboo_job_title = bamboo_fields['jobTitle']
-                bamboo_mobile_phone = bamboo_fields['mobilePhone']
-                bamboo_dept = bamboo_fields['department']
-                bamboo_division = bamboo_fields['division']
-                result = self._ldap.mail_exists(bamboo_mail)
+            if bamboo_fields['workEmail'] is not None and bamboo_fields['workEmail'] not in self._bamboo_exclude_list:
+                bamboo_uid = bamboo_fields['firstName'].lower() + '.' + bamboo_fields['lastName'].lower()
+                result = self._ldap.mail_exists(bamboo_fields['workEmail'])
                 exists = False
                 exists_uid = None
                 printed = False
                 if len(result) == 0:
                     printed = True
-                    mail_uid = bamboo_mail.partition('@')[0]
-                    print('New Bamboo account: %s %s (%s)' % (bamboo_first_name, bamboo_last_name,
-                                                              bamboo_mail))
+                    mail_uid = bamboo_fields['workEmail'].partition('@')[0]
+                    print('New Bamboo account: %s %s (%s)' % (bamboo_fields['firstName'], bamboo_fields['lastName'],
+                                                              bamboo_fields['workEmail']))
                     if not exists and self._ldap.user_exists(bamboo_uid):
                         exists = 'Active'
                         exists_uid = bamboo_uid
@@ -133,14 +117,13 @@ class Main(object):
                         if self._ldap.add_user(
                             bamboo_uid,
                             bamboo_id,
-                            bamboo_first_name,
-                            bamboo_last_name,
-                            bamboo_dept,
-                            bamboo_job_title,
-                            bamboo_mobile_phone,
-                            bamboo_mail,
-                            bamboo_division,
-                            supervisor_email.partition('@')[0]
+                            bamboo_fields['firstName'],
+                            bamboo_fields['lastName'],
+                            bamboo_fields['department'],
+                            bamboo_fields['jobTitle'],
+                            bamboo_fields['mobilePhone'],
+                            bamboo_fields['workEmail'],
+                            bamboo_fields['division']
                         ):
                             print('OK')
                             user_created = True
@@ -178,14 +161,14 @@ Systems: %s
 
 *Stage LDAP user created:* %s
 ''' % (
-                            bamboo_first_name,
-                            bamboo_last_name,
+                            bamboo_fields['firstName'],
+                            bamboo_fields['lastName'],
                             fields['homePhone'],
                             fields['homeEmail'],
                             fields['hireDate'],
-                            bamboo_division,
+                            bamboo_fields['division'],
                             fields['location'],
-                            bamboo_dept,
+                            bamboo_fields['department'],
                             fields['supervisor'],
                             supervisor_email,
                             fields['customrequestedPhone'],
@@ -200,10 +183,11 @@ Systems: %s
 
                         if self._mail.send(
                                 supervisor_email,
-                                ['it@wandisco.com'],
-                                'New Starter Notification: %s %s' % (bamboo_first_name, bamboo_last_name),
+                                [CONFIG.CONFIG.NOTIFICATION_TO],
+                                'New Starter Notification: %s %s' % (bamboo_fields['firstName'],
+                                                                     bamboo_fields['lastName']),
                                 message,
-                                cc=[supervisor_email],
+                                cc=['peter@pakos.uk'],
                                 html=True
                         ) == 202:
                             print('OK')
@@ -218,7 +202,6 @@ Systems: %s
                         dept = attrs.get('departmentNumber')
                         division = attrs.get('ou')
                         phone = attrs.get('telephoneNumber')
-                        # manager_dn = attrs.get('manager')
                         if type(uid) is list:
                             uid = uid[0]
                         if type(mobile) is list:
@@ -233,32 +216,30 @@ Systems: %s
                             division = division[0]
                         if type(phone) is list:
                             phone = phone[0]
-                        # if type(manager_dn) is list:
-                        #    manager_dn = manager_dn[0]
 
-                        if bamboo_mobile_phone != mobile:
+                        if bamboo_fields['mobilePhone'] != mobile:
                             printed = True
                             print('%s: updating mobile from \'%s\' to \'%s\': '
-                                  % (uid, mobile, bamboo_mobile_phone), end='')
-                            if self._ldap.modify(dn, 'mobile', mobile, bamboo_mobile_phone):
+                                  % (uid, mobile, bamboo_fields['mobilePhone']), end='')
+                            if self._ldap.modify(dn, 'mobile', mobile, bamboo_fields['mobilePhone']):
                                 print('OK')
                             else:
                                 print('FAIL')
 
-                        if bamboo_mobile_phone != phone:
+                        if bamboo_fields['mobilePhone'] != phone:
                             printed = True
                             print('%s: updating telephoneNumber from \'%s\' to \'%s\': '
-                                  % (uid, phone, bamboo_mobile_phone), end='')
-                            if self._ldap.modify(dn, 'telephoneNumber', phone, bamboo_mobile_phone):
+                                  % (uid, phone, bamboo_fields['mobilePhone']), end='')
+                            if self._ldap.modify(dn, 'telephoneNumber', phone, bamboo_fields['mobilePhone']):
                                 print('OK')
                             else:
                                 print('FAIL')
 
-                        if bamboo_job_title != title:
+                        if bamboo_fields['jobTitle'] != title:
                             printed = True
                             print('%s: updating title from \'%s\' to \'%s\': '
-                                  % (uid, title, bamboo_job_title), end='')
-                            if self._ldap.modify(dn, 'title', title, bamboo_job_title):
+                                  % (uid, title, bamboo_fields['jobTitle']), end='')
+                            if self._ldap.modify(dn, 'title', title, bamboo_fields['jobTitle']):
                                 print('OK')
                             else:
                                 print('FAIL')
@@ -272,257 +253,30 @@ Systems: %s
                             else:
                                 print('FAIL')
 
-                        if bamboo_dept != dept:
+                        if bamboo_fields['department'] != dept:
                             printed = True
                             print('%s: updating departmentNumber from \'%s\' to \'%s\': '
-                                  % (uid, dept, bamboo_dept), end='')
-                            if self._ldap.modify(dn, 'departmentNumber', dept, bamboo_dept):
+                                  % (uid, dept, bamboo_fields['department']), end='')
+                            if self._ldap.modify(dn, 'departmentNumber', dept, bamboo_fields['department']):
                                 print('OK')
                             else:
                                 print('FAIL')
 
-                        if bamboo_division != division:
+                        if bamboo_fields['division'] != division:
                             printed = True
                             print('%s: updating ou from \'%s\' to \'%s\': '
-                                  % (uid, division, bamboo_division), end='')
-                            if self._ldap.modify(dn, 'ou', division, bamboo_division):
+                                  % (uid, division, bamboo_fields['division']), end='')
+                            if self._ldap.modify(dn, 'ou', division, bamboo_fields['division']):
                                 print('OK')
                             else:
                                 print('FAIL')
 
                 else:
                     printed = True
-                    print('More than one entry found in LDAP for email %s' % bamboo_mail, file=sys.stderr)
+                    print('More than one DN found in LDAP with email %s' % bamboo_fields['workEmail'],
+                          file=sys.stderr)
                 if printed:
                     print()
-
-
-class Bamboo(object):
-    def __init__(self, url, api_key):
-        self._directory = {}
-        self._url = url
-        self._api_key = api_key
-        self._fetch_directory()
-
-    def get_directory(self):
-        return self._directory
-
-    def _fetch(self, url):
-        request = urllib2.Request(self._url + url)
-        base64string = base64.encodestring('%s:x' % (
-            self._api_key
-        )).replace('\n', '')
-        request.add_header('Authorization', 'Basic %s' % base64string)
-        result = None
-        try:
-            result = urllib2.urlopen(request)
-        except urllib2.HTTPError as err:
-            Main.die('Failed to fetch Bamboo data (HTTP Error Code %s)' % err.code)
-        except urllib2.URLError as err:
-            Main.die('Failed to fetch Bamboo data (URL Error %s)' % err.reason)
-        except ValueError:
-            Main.die('Failed to fetch Bamboo data (Incorrect API URL)')
-        return xml.etree.ElementTree.fromstring(result.read())
-
-    def _fetch_directory(self):
-        directory = self._fetch("/directory/")
-        for employee in directory.iter('employee'):
-            fields = {}
-            for field in employee.iter('field'):
-                fields[field.attrib['id']] = field.text
-            self._directory.update({employee.attrib['id']: fields})
-        if len(self._directory) == 0:
-            Main.die('Bamboo data set is empty')
-
-    def display_data(self):
-        table = prettytable.PrettyTable(['ID', 'First', 'Last', 'Department', 'Job title', 'Mobile', 'Email',
-                                         'Division'], sortby='Last')
-        table.align = 'l'
-        number = 0
-        for eid, fields in self._directory.items():
-            number += 1
-            table.add_row([
-                eid,
-                fields['firstName'],
-                fields['lastName'],
-                fields['department'],
-                fields['jobTitle'],
-                fields['mobilePhone'],
-                fields['workEmail'],
-                fields['division']
-            ])
-        print(table)
-
-    def fetch_field(self, eid, field_list):
-        if type(field_list) is not list:
-            field_list = [field_list]
-        result = {}
-        fields = self._fetch("/%s?fields=%s" % (eid, ','.join(field_list)))
-        for f in fields.iter('field'):
-            result[f.attrib['id']] = f.text
-        if len(field_list) == 1 and len(result) == 1:
-            return result[field_list[0]]
-        else:
-            return result
-
-
-class Ldap(object):
-    def __init__(self, ipa_server, bind_dn, bind_pw):
-        self._ipa_server = ipa_server
-        self._bind_dn = bind_dn
-        self._bind_pw = bind_pw
-        self._directory = {}
-        self._url = 'ldaps://' + ipa_server
-        self._base_dn = 'dc=' + ipa_server.partition('.')[2].replace('.', ',dc=')
-        self._active_user_base = 'cn=users,cn=accounts,' + self._base_dn
-        self._stage_user_base = 'cn=staged users,cn=accounts,cn=provisioning,' + self._base_dn
-        self._preserved_user_base = 'cn=deleted users,cn=accounts,cn=provisioning,' + self._base_dn
-        self._con = None
-        self._fetch_directory()
-
-    def __del__(self):
-        self._con.unbind()
-
-    def _bind(self):
-        self._con = ldap.initialize(self._url)
-        try:
-            self._con.simple_bind_s(self._bind_dn, self._bind_pw)
-        except (
-            ldap.SERVER_DOWN,
-            ldap.NO_SUCH_OBJECT,
-            ldap.INVALID_CREDENTIALS
-        ) as err:
-            Main.die('Bind error: %s' % err.message['desc'])
-
-    def _search(self, base, scope, fltr, attrs):
-        return self._con.search_s(base, scope, fltr, attrs)
-
-    def _fetch_directory(self):
-        self._bind()
-        for dn, attrs in self._search(
-                self._active_user_base,
-                ldap.SCOPE_SUBTREE,
-                '(uid=*)',
-                ['*']
-        ):
-            self._directory.update({dn: attrs})
-
-    def get_directory(self):
-        return self._directory
-
-    def display_data(self):
-        table = prettytable.PrettyTable(['ID', 'First', 'Last', 'Department', 'Job title', 'Mobile', 'Email',
-                                         'Division'], sortby='Last')
-        table.align = 'l'
-        for dn, attrs in self.get_directory().iteritems():
-            eid = attrs.get('employeeNumber')
-            given_name = attrs.get('givenName')
-            sn = attrs.get('sn')
-            ou = attrs.get('ou')
-            title = attrs.get('title')
-            mobile = attrs.get('mobile')
-            mail = attrs.get('mail')
-            dept = attrs.get('departmentNumber')
-            if type(eid) is list:
-                eid = ','.join(eid)
-            if type(given_name) is list:
-                given_name = ','.join(given_name)
-            if type(sn) is list:
-                sn = ','.join(sn)
-            if type(dept) is list:
-                dept = ','.join(dept)
-            if type(ou) is list:
-                ou = ','.join(ou)
-            if type(title) is list:
-                title = ','.join(title)
-            if type(mobile) is list:
-                mobile = ','.join(mobile)
-            if type(mail) is list:
-                mail = ','.join(mail)
-            table.add_row([
-                eid,
-                given_name,
-                sn,
-                dept,
-                title,
-                mobile,
-                mail,
-                ou
-            ])
-        print(table)
-
-    def mail_exists(self, mail):
-        result = {}
-        for dn, attrs in self.get_directory().iteritems():
-            mail_list = attrs.get('mail')
-            if mail_list is not None:
-                mail_list = [e.lower() for e in mail_list]
-                if str(mail).lower() in mail_list:
-                    result.update({dn: attrs})
-        return result
-
-    def user_exists(self, uid, category='active'):
-        if category == 'stage':
-            base = self._stage_user_base
-        elif category == 'preserved':
-            base = self._preserved_user_base
-        else:
-            base = self._active_user_base
-        result = self._search(
-            base,
-            ldap.SCOPE_SUBTREE,
-            '(uid=%s)' % uid,
-            ['dn']
-        )
-        result = len(result)
-        if result == 0:
-            return False
-        elif result == 1:
-            return True
-
-    def add_user(self, uid, bamboo_id, first, last, dept, title, mobile, mail, division, manager_uid):
-        dn = 'uid=%s,%s' % (uid, self._stage_user_base)
-        manager_dn = 'uid=%s,%s' % (manager_uid, self._active_user_base) if self.user_exists(manager_uid) else ''
-        attrs = dict()
-        attrs['objectclass'] = ['top', 'posixaccount', 'person', 'inetorgperson', 'organizationalperson']
-        attrs['cn'] = first + ' ' + last
-        attrs['givenName'] = first
-        attrs['sn'] = last
-        attrs['uid'] = uid
-        attrs['uidNumber'] = '-1'
-        attrs['gidNumber'] = '707'
-        attrs['title'] = title
-        attrs['mobile'] = mobile if mobile else ''
-        attrs['telephoneNumber'] = mobile if mobile else ''
-        attrs['mail'] = mail
-        attrs['homeDirectory'] = '/home/' + uid
-        attrs['loginShell'] = '/usr/sbin/nologin'
-        attrs['employeeNumber'] = bamboo_id
-        attrs['departmentNumber'] = dept
-        attrs['ou'] = division
-        attrs['manager'] = manager_dn
-        ldif = ldap.modlist.addModlist(attrs)
-        try:
-            self._con.add_s(dn, ldif)
-        except ldap.LDAPError:
-            return False
-        return True
-
-    def modify(self, dn, attr, old_value, new_value):
-        if not old_value:
-            old_value = ''
-        if not new_value:
-            new_value = ''
-        old = {attr: old_value}
-        new = {attr: new_value}
-        ldif = ldap.modlist.modifyModlist(old, new)
-
-        try:
-            self._con.modify_s(dn, ldif)
-        except ldap.LDAPError:
-            return False
-
-        return True
 
 
 if __name__ == '__main__':
