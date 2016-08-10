@@ -11,6 +11,8 @@ from __future__ import print_function
 import os
 import sys
 import argparse
+import datetime
+import tzlocal
 
 import CONFIG
 import WDBamboo
@@ -19,7 +21,7 @@ import WDMail
 
 
 class Main(object):
-    _version = '16.8.9'
+    _version = '16.8.10'
     _name = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):
@@ -90,16 +92,9 @@ class Main(object):
                         if not exists and self._ldap.user_exists(mail_uid, 'preserved'):
                             exists = 'Preserved'
                             exists_uid = mail_uid
-                    bamboo_termination_date = self._bamboo.fetch_field(bamboo_id, ['terminationDate'])
-                    if bamboo_termination_date and bamboo_termination_date != '0000-00-00':
-                            print('User leaving on %s, skipping account creation\n' % bamboo_termination_date)
-                            continue
-                    if exists:
-                        print('%s LDAP account %s already exists, skipping account creation\n' % (exists, exists_uid))
-                        continue
-                    else:
-                        fields = self._bamboo.fetch_field(bamboo_id, [
+                    fields = self._bamboo.fetch_field(bamboo_id, [
                             'hireDate',
+                            'terminationDate',
                             'homeEmail',
                             'homePhone',
                             'supervisor',
@@ -112,6 +107,20 @@ class Main(object):
                             'customTeams',
                             'customSystems'
                         ])
+                    if fields['hireDate'] and fields['hireDate'] != '0000-00-00':
+                        local_tz = tzlocal.get_localzone()
+                        now = local_tz.localize(datetime.datetime.now()).date()
+                        hire_date = local_tz.localize(datetime.datetime.strptime(fields['hireDate'], '%Y-%m-%d')).date()
+                        if now > hire_date:
+                            print('Hire date %s is in the past, skipping account creation\n' % fields['hireDate'])
+                            continue
+                    if fields['terminationDate'] and fields['terminationDate'] != '0000-00-00':
+                            print('User leaving on %s, skipping account creation\n' % fields['terminationDate'])
+                            continue
+                    if exists:
+                        print('%s LDAP account %s already exists, skipping account creation\n' % (exists, exists_uid))
+                        continue
+                    else:
                         supervisor_email = self._bamboo.fetch_field(fields['supervisorEid'], ['workEmail'])
                         print('Creating stage LDAP account %s: ' % bamboo_uid, end='')
                         if self._ldap.add_user(
@@ -132,7 +141,7 @@ class Main(object):
                             user_created = False
                         print('Sending New Starter Notification: ', end='')
                         if not self._args.notify:
-                            print('NO')
+                            print('NO\n')
                             continue
                         message = '''*Personal Information*
 Name: %s %s
