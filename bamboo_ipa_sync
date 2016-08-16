@@ -107,15 +107,15 @@ class Main(object):
                             'customTeams',
                             'customSystems'
                         ])
+                    if fields['terminationDate'] and fields['terminationDate'] != '0000-00-00':
+                            print('User leaving on %s, skipping account creation\n' % fields['terminationDate'])
+                            continue
                     if fields['hireDate'] and fields['hireDate'] != '0000-00-00':
                         local_tz = tzlocal.get_localzone()
                         now = local_tz.localize(datetime.datetime.now()).date()
                         hire_date = local_tz.localize(datetime.datetime.strptime(fields['hireDate'], '%Y-%m-%d')).date()
                         if now > hire_date:
                             print('Hire date %s is in the past, skipping account creation\n' % fields['hireDate'])
-                            continue
-                    if fields['terminationDate'] and fields['terminationDate'] != '0000-00-00':
-                            print('User leaving on %s, skipping account creation\n' % fields['terminationDate'])
                             continue
                     if exists:
                         print('%s LDAP account %s already exists, skipping account creation\n' % (exists, exists_uid))
