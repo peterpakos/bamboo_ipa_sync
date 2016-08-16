@@ -21,7 +21,7 @@ import WDMail
 
 
 class Main(object):
-    _version = '16.8.10'
+    _version = '16.8.16'
     _name = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):
