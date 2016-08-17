@@ -93,6 +93,9 @@ class Main(object):
                         if not exists and self._ldap.user_exists(mail_uid, 'preserved'):
                             exists = 'Preserved'
                             exists_uid = mail_uid
+                    if exists:
+                        print('%s LDAP account %s already exists, skipping account creation\n' % (exists, exists_uid))
+                        continue
                     fields = self._bamboo.fetch_field(bamboo_id, [
                             'hireDate',
                             'terminationDate',
@@ -119,10 +122,7 @@ class Main(object):
                             print('Hire date %s is in the past, skipping account creation (use -f to force)\n' %
                                   fields['hireDate'])
                             continue
-                    if exists:
-                        print('%s LDAP account %s already exists, skipping account creation\n' % (exists, exists_uid))
-                        continue
-                    else:
+                    if not exists:
                         supervisor_email = self._bamboo.fetch_field(fields['supervisorEid'], ['workEmail'])
                         print('Creating stage LDAP account %s: ' % bamboo_uid, end='')
                         if self._ldap.add_user(
