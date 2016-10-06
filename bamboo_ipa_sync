@@ -21,7 +21,7 @@ import WDMail
 
 
 class Main(object):
-    _version = '16.8.17'
+    _version = '16.10.6'
     _name = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):
@@ -123,7 +123,10 @@ class Main(object):
                                   fields['hireDate'])
                             continue
                     if not exists:
-                        supervisor_email = self._bamboo.fetch_field(fields['supervisorEid'], ['workEmail'])
+                        if fields['supervisorEid']:
+                            supervisor_email = self._bamboo.fetch_field(fields['supervisorEid'], ['workEmail'])
+                        else:
+                            supervisor_email = None
                         print('Creating stage LDAP account %s: ' % bamboo_uid, end='')
                         if self._ldap.add_user(
                             bamboo_uid,
@@ -147,8 +150,9 @@ class Main(object):
                             continue
                         message = '''*Personal Information*
 Name: %s %s
-Home phone: %s
-Home email: %s
+Job Title: %s
+Home Phone: %s
+Home Email: %s
 Start Date: %s
 
 *Department Information*
@@ -174,6 +178,7 @@ Systems: %s
 ''' % (
                             bamboo_fields['firstName'],
                             bamboo_fields['lastName'],
+                            bamboo_fields['jobTitle'],
                             fields['homePhone'],
                             fields['homeEmail'],
                             fields['hireDate'],
@@ -192,6 +197,8 @@ Systems: %s
                             'Yes' if user_created else 'No'
                         )
 
+                        if not supervisor_email:
+                            supervisor_email = CONFIG.CONFIG.NOTIFICATION_TO
                         if self._mail.send(
                                 supervisor_email,
                                 [CONFIG.CONFIG.NOTIFICATION_TO],
