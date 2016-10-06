@@ -21,7 +21,7 @@ import WDMail
 
 
 class Main(object):
-    _version = '16.10.6'
+    _version = '16.10.6a'
     _name = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):
@@ -32,6 +32,7 @@ class Main(object):
         self._bind_dn = CONFIG.CONFIG.BIND_DN
         self._bind_pw = CONFIG.CONFIG.BIND_PW
         self._bamboo_exclude_list = CONFIG.CONFIG.BAMBOO_EXCLUDE_LIST
+        self._notification_to = CONFIG.CONFIG.NOTIFICATION_TO
         self._mail = WDMail.WDMail()
 
         if self._args.bamboo:
@@ -198,10 +199,10 @@ Systems: %s
                         )
 
                         if not supervisor_email:
-                            supervisor_email = CONFIG.CONFIG.NOTIFICATION_TO
+                            supervisor_email = self._notification_to
                         if self._mail.send(
                                 supervisor_email,
-                                [CONFIG.CONFIG.NOTIFICATION_TO],
+                                [self._notification_to],
                                 'New Starter Notification: %s %s' % (bamboo_fields['firstName'],
                                                                      bamboo_fields['lastName']),
                                 message,
