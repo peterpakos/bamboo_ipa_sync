@@ -21,7 +21,7 @@ import WDMail
 
 
 class Main(object):
-    _version = '16.10.6a'
+    _version = '16.10.18'
     _name = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):
@@ -73,8 +73,28 @@ class Main(object):
                 if len(result) == 0:
                     printed = True
                     mail_uid = bamboo_fields['workEmail'].partition('@')[0]
+                    fields = self._bamboo.fetch_field(bamboo_id, [
+                            'hireDate',
+                            'terminationDate',
+                            'homeEmail',
+                            'homePhone',
+                            'supervisor',
+                            'supervisorEid',
+                            'customonboardingNotes',
+                            'customrequestedPhone',
+                            'customrequestedLaptop',
+                            'customrequestedMonitor',
+                            'location',
+                            'customTeams',
+                            'customSystems'
+                        ])
                     print('New Bamboo account: %s %s (%s)' % (bamboo_fields['firstName'], bamboo_fields['lastName'],
                                                               bamboo_fields['workEmail']))
+                    print('- Job Title: %s' % bamboo_fields['jobTitle'])
+                    print('- Department: %s' % bamboo_fields['department'])
+                    print('- Location: %s' % fields['location'])
+                    print('- Manager: %s' % fields['supervisor'])
+                    print('- Start date: %s' % fields['hireDate'])
                     if not exists and self._ldap.user_exists(bamboo_uid):
                         exists = 'Active'
                         exists_uid = bamboo_uid
@@ -95,23 +115,8 @@ class Main(object):
                             exists = 'Preserved'
                             exists_uid = mail_uid
                     if exists:
-                        print('%s LDAP account %s already exists, skipping account creation\n' % (exists, exists_uid))
+                        print('%s LDAP account %s already exists\n' % (exists, exists_uid))
                         continue
-                    fields = self._bamboo.fetch_field(bamboo_id, [
-                            'hireDate',
-                            'terminationDate',
-                            'homeEmail',
-                            'homePhone',
-                            'supervisor',
-                            'supervisorEid',
-                            'customonboardingNotes',
-                            'customrequestedPhone',
-                            'customrequestedLaptop',
-                            'customrequestedMonitor',
-                            'location',
-                            'customTeams',
-                            'customSystems'
-                        ])
                     if fields['terminationDate'] and fields['terminationDate'] != '0000-00-00':
                             print('User leaving on %s, skipping account creation\n' % fields['terminationDate'])
                             continue
@@ -120,8 +125,7 @@ class Main(object):
                         now = local_tz.localize(datetime.datetime.now()).date()
                         hire_date = local_tz.localize(datetime.datetime.strptime(fields['hireDate'], '%Y-%m-%d')).date()
                         if now > hire_date:
-                            print('Hire date %s is in the past, skipping account creation (use -f to force)\n' %
-                                  fields['hireDate'])
+                            print('Start date is in the past, skipping account creation (use -f to force)\n')
                             continue
                     if not exists:
                         if fields['supervisorEid']:
@@ -157,9 +161,9 @@ Home Email: %s
 Start Date: %s
 
 *Department Information*
-Division: %s
-Location: %s
 Department: %s
+Location: %s
+Division: %s
 Manager Name: %s
 Manager Email: %s
 
@@ -183,9 +187,9 @@ Systems: %s
                             fields['homePhone'],
                             fields['homeEmail'],
                             fields['hireDate'],
-                            bamboo_fields['division'],
-                            fields['location'],
                             bamboo_fields['department'],
+                            fields['location'],
+                            bamboo_fields['division'],
                             fields['supervisor'],
                             supervisor_email,
                             fields['customrequestedPhone'],
