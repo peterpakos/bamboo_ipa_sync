@@ -39,7 +39,7 @@ class WDBamboo(object):
         for employee in directory.iter('employee'):
             fields = {}
             for field in employee.iter('field'):
-                fields[field.attrib['id']] = field.text
+                fields[field.attrib['id']] = field.text.encode('utf8').strip() if field.text else None
             self._directory.update({employee.attrib['id']: fields})
         if len(self._directory) == 0:
             print('Bamboo data set is empty', file=sys.stderr)
@@ -70,7 +70,7 @@ class WDBamboo(object):
         result = {}
         fields = self._fetch("/%s?fields=%s" % (bamboo_id, ','.join(bamboo_fields)))
         for f in fields.iter('field'):
-            result[f.attrib['id']] = f.text
+            result[f.attrib['id']] = f.text.encode('utf8').strip() if f.text else None
         if len(bamboo_fields) == 1 and len(result) == 1:
             return result[bamboo_fields[0]]
         else:

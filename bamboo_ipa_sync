@@ -19,9 +19,11 @@ import WDBamboo
 import WDLdap
 import WDMail
 
+from unidecode import unidecode
+
 
 class Main(object):
-    _version = '16.10.25'
+    _version = '17.3.17'
     _name = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):
@@ -73,12 +75,13 @@ class Main(object):
         directory = self._bamboo.get_directory()
         for bamboo_id, bamboo_fields in directory.items():
             if bamboo_fields['workEmail'] is not None and bamboo_fields['workEmail'] not in self._bamboo_exclude_list:
-                bamboo_uid = bamboo_fields['firstName'].lower() + '.' + bamboo_fields['lastName'].lower()
                 result = self._ldap.mail_exists(bamboo_fields['workEmail'])
                 exists = False
                 exists_uid = None
                 printed = False
                 if len(result) == 0:
+                    bamboo_uid = str(unidecode(bamboo_fields['firstName'].decode('utf8')) + '.' +
+                                     unidecode(bamboo_fields['lastName'].decode('utf8'))).lower()
                     printed = True
                     mail_uid = bamboo_fields['workEmail'].partition('@')[0]
                     fields = self._bamboo.fetch_field(bamboo_id, [
