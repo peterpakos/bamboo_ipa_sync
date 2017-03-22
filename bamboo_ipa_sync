@@ -23,7 +23,7 @@ from unidecode import unidecode
 
 
 class Main(object):
-    _version = '17.3.17'
+    _version = '17.3.23'
     _name = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):
@@ -69,6 +69,8 @@ class Main(object):
                             action='store_true')
         parser.add_argument('-f', '--force', help='force changes for given UIDs (or all if none provided)', dest='uid',
                             nargs='*', action='store')
+        parser.add_argument('-N', '--noop', help='dry-run mode', dest='noop',
+                            action='store_true')
         return parser, parser.parse_args()
 
     def sync_data(self):
@@ -145,24 +147,28 @@ class Main(object):
                         else:
                             supervisor_email = None
                         print('Creating stage LDAP account %s: ' % bamboo_uid, end='')
-                        if self._ldap.add_user(
-                            bamboo_uid,
-                            bamboo_id,
-                            bamboo_fields['firstName'],
-                            bamboo_fields['lastName'],
-                            bamboo_fields['department'],
-                            bamboo_fields['jobTitle'],
-                            bamboo_fields['mobilePhone'],
-                            bamboo_fields['workEmail'],
-                            bamboo_fields['division']
-                        ):
-                            print('OK')
-                            user_created = True
-                        else:
-                            print('FAIL')
+                        if self._args.noop:
+                            print('DRY-RUN')
                             user_created = False
+                        else:
+                            if self._ldap.add_user(
+                                bamboo_uid,
+                                bamboo_id,
+                                bamboo_fields['firstName'],
+                                bamboo_fields['lastName'],
+                                bamboo_fields['department'],
+                                bamboo_fields['jobTitle'],
+                                bamboo_fields['mobilePhone'],
+                                bamboo_fields['workEmail'],
+                                bamboo_fields['division']
+                            ):
+                                print('OK')
+                                user_created = True
+                            else:
+                                print('FAIL')
+                                user_created = False
                         print('Sending New Starter Notification: ', end='')
-                        if not self._args.notify:
+                        if not self._args.notify or self._args.noop:
                             print('NO\n')
                             continue
                         message = '''*Personal Information*
@@ -256,55 +262,73 @@ Systems: %s
                             printed = True
                             print('%s: updating mobile from \'%s\' to \'%s\': '
                                   % (uid, mobile, bamboo_fields['mobilePhone']), end='')
-                            if self._ldap.modify(dn, 'mobile', mobile, bamboo_fields['mobilePhone']):
-                                print('OK')
+                            if self._args.noop:
+                                print('DRY-RUN')
                             else:
-                                print('FAIL')
+                                if self._ldap.modify(dn, 'mobile', mobile, bamboo_fields['mobilePhone']):
+                                    print('OK')
+                                else:
+                                    print('FAIL')
 
                         if bamboo_fields['mobilePhone'] != phone:
                             printed = True
                             print('%s: updating telephoneNumber from \'%s\' to \'%s\': '
                                   % (uid, phone, bamboo_fields['mobilePhone']), end='')
-                            if self._ldap.modify(dn, 'telephoneNumber', phone, bamboo_fields['mobilePhone']):
-                                print('OK')
+                            if self._args.noop:
+                                print('DRY-RUN')
                             else:
-                                print('FAIL')
+                                if self._ldap.modify(dn, 'telephoneNumber', phone, bamboo_fields['mobilePhone']):
+                                    print('OK')
+                                else:
+                                    print('FAIL')
 
                         if bamboo_fields['jobTitle'] != title:
                             printed = True
                             print('%s: updating title from \'%s\' to \'%s\': '
                                   % (uid, title, bamboo_fields['jobTitle']), end='')
-                            if self._ldap.modify(dn, 'title', title, bamboo_fields['jobTitle']):
-                                print('OK')
+                            if self._args.noop:
+                                print('DRY-RUN')
                             else:
-                                print('FAIL')
+                                if self._ldap.modify(dn, 'title', title, bamboo_fields['jobTitle']):
+                                    print('OK')
+                                else:
+                                    print('FAIL')
 
                         if bamboo_id != eid:
                             printed = True
                             print('%s: updating employeeNumber from \'%s\' to \'%s\': '
                                   % (uid, eid, bamboo_id), end='')
-                            if self._ldap.modify(dn, 'employeeNumber', eid, bamboo_id):
-                                print('OK')
+                            if self._args.noop:
+                                print('DRY-RUN')
                             else:
-                                print('FAIL')
+                                if self._ldap.modify(dn, 'employeeNumber', eid, bamboo_id):
+                                    print('OK')
+                                else:
+                                    print('FAIL')
 
                         if bamboo_fields['department'] != dept:
                             printed = True
                             print('%s: updating departmentNumber from \'%s\' to \'%s\': '
                                   % (uid, dept, bamboo_fields['department']), end='')
-                            if self._ldap.modify(dn, 'departmentNumber', dept, bamboo_fields['department']):
-                                print('OK')
+                            if self._args.noop:
+                                print('DRY-RUN')
                             else:
-                                print('FAIL')
+                                if self._ldap.modify(dn, 'departmentNumber', dept, bamboo_fields['department']):
+                                    print('OK')
+                                else:
+                                    print('FAIL')
 
                         if bamboo_fields['division'] != division:
                             printed = True
                             print('%s: updating ou from \'%s\' to \'%s\': '
                                   % (uid, division, bamboo_fields['division']), end='')
-                            if self._ldap.modify(dn, 'ou', division, bamboo_fields['division']):
-                                print('OK')
+                            if self._args.noop:
+                                print('DRY-RUN')
                             else:
-                                print('FAIL')
+                                if self._ldap.modify(dn, 'ou', division, bamboo_fields['division']):
+                                    print('OK')
+                                else:
+                                    print('FAIL')
 
                 else:
                     printed = True
