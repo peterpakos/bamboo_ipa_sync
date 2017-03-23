@@ -3,8 +3,9 @@ Bamboo HR to FreeIPA Synchronisation Tool
 
 ## Usage
 ```
-$ ./usage: bamboo_ipa_sync [-h] [--version] [-l] [-b] [-s] [-n]
-                       [-f [UID [UID ...]]]
+$ ./bamboo_ipa_sync -h
+usage: bamboo_ipa_sync [-h] [--version] [-l] [-b] [-s] [-n]
+                       [-f [UID [UID ...]]] [-N]
 
 A tool to synchronise FreeIPA with Bamboo HR
 
@@ -17,4 +18,5 @@ optional arguments:
   -n, --notification    send New Starter Notification (requires -s)
   -f [UID [UID ...]], --force [UID [UID ...]]
                         force changes for given UIDs (or all if none provided)
+  -N, --noop            dry-run mode
 ```
