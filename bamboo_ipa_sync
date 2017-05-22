@@ -23,7 +23,7 @@ from unidecode import unidecode
 
 
 class Main(object):
-    _version = '17.3.23'
+    _version = '17.5.22'
     _name = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):
@@ -75,16 +75,15 @@ class Main(object):
 
     def sync_data(self):
         directory = self._bamboo.get_directory()
+        local_tz = tzlocal.get_localzone()
+        now = local_tz.localize(datetime.datetime.now()).date()
         for bamboo_id, bamboo_fields in directory.items():
             if bamboo_fields['workEmail'] is not None and bamboo_fields['workEmail'] not in self._bamboo_exclude_list:
                 result = self._ldap.mail_exists(bamboo_fields['workEmail'])
-                exists = False
-                exists_uid = None
                 printed = False
                 if len(result) == 0:
                     bamboo_uid = str(unidecode(bamboo_fields['firstName'].decode('utf8')) + '.' +
                                      unidecode(bamboo_fields['lastName'].decode('utf8'))).lower()
-                    printed = True
                     mail_uid = bamboo_fields['workEmail'].partition('@')[0]
                     fields = self._bamboo.fetch_field(bamboo_id, [
                             'hireDate',
@@ -101,6 +100,37 @@ class Main(object):
                             'customTeams',
                             'customSystems'
                         ])
+
+                    if self._ldap.user_exists(bamboo_uid):
+                        exists = 'Active'
+                        exists_uid = bamboo_uid
+                    elif self._ldap.user_exists(bamboo_uid, 'stage'):
+                        exists = 'Stage'
+                        exists_uid = bamboo_uid
+                    elif self._ldap.user_exists(bamboo_uid, 'preserved'):
+                        exists = 'Preserved'
+                        exists_uid = bamboo_uid
+                    else:
+                        exists = False
+                        exists_uid = None
+
+                    if not exists and bamboo_uid != mail_uid:
+                        if self._ldap.user_exists(mail_uid):
+                            exists = 'Active'
+                            exists_uid = mail_uid
+                        elif self._ldap.user_exists(mail_uid, 'stage'):
+                            exists = 'Stage'
+                            exists_uid = mail_uid
+                        elif self._ldap.user_exists(mail_uid, 'preserved'):
+                            exists = 'Preserved'
+                            exists_uid = mail_uid
+
+                    if fields['hireDate'] and fields['hireDate'] != '0000-00-00' and exists == 'Stage' \
+                            and not self._force_all and bamboo_uid not in self._force_uid and not self._args.noop:
+                        hire_date = local_tz.localize(datetime.datetime.strptime(fields['hireDate'], '%Y-%m-%d')).date()
+                        if hire_date > now:
+                            continue
+
                     print('New Bamboo account: %s %s (%s)' % (bamboo_fields['firstName'], bamboo_fields['lastName'],
                                                               bamboo_fields['workEmail']))
                     print('- Job Title: %s' % bamboo_fields['jobTitle'])
@@ -108,39 +138,23 @@ class Main(object):
                     print('- Location: %s' % fields['location'])
                     print('- Manager: %s' % fields['supervisor'])
                     print('- Start date: %s' % fields['hireDate'])
-                    if not exists and self._ldap.user_exists(bamboo_uid):
-                        exists = 'Active'
-                        exists_uid = bamboo_uid
-                    if not exists and self._ldap.user_exists(bamboo_uid, 'stage'):
-                        exists = 'Stage'
-                        exists_uid = bamboo_uid
-                    if not exists and self._ldap.user_exists(bamboo_uid, 'preserved'):
-                        exists = 'Preserved'
-                        exists_uid = bamboo_uid
-                    if bamboo_uid != mail_uid:
-                        if not exists and self._ldap.user_exists(mail_uid):
-                            exists = 'Active'
-                            exists_uid = mail_uid
-                        if not exists and self._ldap.user_exists(mail_uid, 'stage'):
-                            exists = 'Stage'
-                            exists_uid = mail_uid
-                        if not exists and self._ldap.user_exists(mail_uid, 'preserved'):
-                            exists = 'Preserved'
-                            exists_uid = mail_uid
+                    printed = True
+
                     if exists:
                         print('%s LDAP account %s already exists\n' % (exists, exists_uid))
                         continue
+
                     if fields['terminationDate'] and fields['terminationDate'] != '0000-00-00':
                             print('User leaving on %s, skipping account creation\n' % fields['terminationDate'])
                             continue
+
                     if fields['hireDate'] and fields['hireDate'] != '0000-00-00' and not self._force_all \
                             and bamboo_uid not in self._force_uid:
-                        local_tz = tzlocal.get_localzone()
-                        now = local_tz.localize(datetime.datetime.now()).date()
                         hire_date = local_tz.localize(datetime.datetime.strptime(fields['hireDate'], '%Y-%m-%d')).date()
-                        if now > hire_date:
+                        if hire_date < now:
                             print('Start date is in the past, skipping account creation (use -f to force)\n')
                             continue
+
                     if not exists:
                         if fields['supervisorEid']:
                             supervisor_email = self._bamboo.fetch_field(fields['supervisorEid'], ['workEmail'])
@@ -167,6 +181,7 @@ class Main(object):
                             else:
                                 print('FAIL')
                                 user_created = False
+
                         print('Sending New Starter Notification: ', end='')
                         if not self._args.notify or self._args.noop:
                             print('NO\n')
