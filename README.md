@@ -1,6 +1,15 @@
 # bamboo_ipa_sync
 Bamboo HR to FreeIPA Synchronisation Tool
 
+## Python modules
+Run the following command to install required Python modules:
+~~~
+$ pip install -r requirements.txt
+~~~
+
+## Configuration
+Edit and save the sample config file `CONFIG_SAMPLE.py` as `CONFIG.py`.
+
 ## Usage
 ```
 $ ./bamboo_ipa_sync -h
