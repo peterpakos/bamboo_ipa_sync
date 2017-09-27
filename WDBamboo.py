@@ -26,7 +26,7 @@ import prettytable
 
 
 class WDBamboo(object):
-    VERSION = '1.0.2'
+    VERSION = '1.0.3'
 
     def __init__(self, url, api_key):
         self._directory = {}
@@ -90,7 +90,7 @@ class WDBamboo(object):
         result = {}
         fields = self._fetch("/%s?fields=%s" % (bamboo_id, ','.join(bamboo_fields)))
         for f in fields.iter('field'):
-            field_id = 'terminationDate' if f.attrib['id'] == '-38' else f.attrib['id']
+            field_id = f.attrib['id']
             field_text = f.text.encode('utf8').strip() if f.text else None
             result[field_id] = field_text
         if len(bamboo_fields) == 1 and len(result) == 1:
