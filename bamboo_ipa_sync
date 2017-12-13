@@ -35,7 +35,7 @@ from WDMail import WDMail
 
 
 class Main(object):
-    VERSION = WDBamboo.VERSION
+    VERSION = '1.0.4'
     _NAME = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):

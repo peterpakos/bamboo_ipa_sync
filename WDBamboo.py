@@ -26,8 +26,6 @@ import prettytable
 
 
 class WDBamboo(object):
-    VERSION = '1.0.3'
-
     def __init__(self, url, api_key):
         self._directory = {}
         self._url = url

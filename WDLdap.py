@@ -25,8 +25,6 @@ import re
 
 
 class WDLdap(object):
-    VERSION = '1.0.0'
-
     def __init__(self, ipa_server, bind_dn, bind_pw):
         self._ipa_server = ipa_server
         self._bind_dn = bind_dn
@@ -172,8 +170,8 @@ class WDLdap(object):
             old_value = ''
         if not new_value:
             new_value = ''
-        old = {attr: old_value}
-        new = {attr: new_value}
+        old = {attr: [old_value]}
+        new = {attr: [new_value]}
         ldif = ldap.modlist.modifyModlist(old, new)
 
         try:
