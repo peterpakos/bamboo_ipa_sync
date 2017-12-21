@@ -72,7 +72,7 @@ class WDLdap(object):
         table = prettytable.PrettyTable(['ID', 'First', 'Last', 'Department', 'Job title', 'Mobile', 'Email',
                                          'Division', 'uid'], sortby='Last')
         table.align = 'l'
-        for dn, attrs in self.get_directory().iteritems():
+        for dn, attrs in self.get_directory().items():
             eid = attrs.get('employeeNumber')
             given_name = attrs.get('givenName')
             sn = attrs.get('sn')
@@ -112,7 +112,7 @@ class WDLdap(object):
 
     def mail_exists(self, mail):
         result = {}
-        for dn, attrs in self.get_directory().iteritems():
+        for dn, attrs in self.get_directory().items():
             mail_list = attrs.get('mail')
             if mail_list is not None:
                 mail_list = [e.lower() for e in mail_list]
@@ -166,12 +166,10 @@ class WDLdap(object):
         return True
 
     def modify(self, dn, attr, old_value, new_value):
-        if not old_value:
-            old_value = ''
-        if not new_value:
-            new_value = ''
-        old = {attr: [old_value]}
-        new = {attr: [new_value]}
+        old_value = '' if not old_value else [old_value]
+        new_value = '' if not new_value else [new_value]
+        old = {attr: old_value}
+        new = {attr: new_value}
         ldif = ldap.modlist.modifyModlist(old, new)
 
         try:

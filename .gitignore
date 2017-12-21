@@ -2,3 +2,5 @@
 *.pyc
 *.api
 CONFIG.py
+py27
+py36

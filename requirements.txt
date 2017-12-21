@@ -1,6 +1,5 @@
-pep8
 tzlocal
 unidecode
 prettytable
 sendgrid
-python-ldap
+pyldap
