@@ -35,7 +35,7 @@ from WDMail import WDMail
 
 
 class Main(object):
-    VERSION = '1.0.5'
+    VERSION = '1.0.6'
     _NAME = os.path.splitext(os.path.basename(os.path.realpath(__file__)))[0]
 
     def __init__(self):
@@ -88,8 +88,10 @@ class Main(object):
                 result = self._ldap.mail_exists(bamboo_fields['workEmail'])
                 printed = False
                 if len(result) == 0:
-                    bamboo_uid = str(unidecode(bamboo_fields['firstName'].decode('utf8')) + '.' +
-                                     unidecode(bamboo_fields['lastName'].decode('utf8'))).lower().replace(' ', '')
+                    bamboo_uid = str(
+                        unidecode(bamboo_fields['firstName'].decode('utf8')) + '.' +
+                        unidecode(bamboo_fields['lastName'].decode('utf8'))
+                    ).lower().replace(' ', '').replace("'", '')
                     mail_uid = bamboo_fields['workEmail'].partition('@')[0]
                     fields = self._bamboo.fetch_field(bamboo_id, [
                         'hireDate',
