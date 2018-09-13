@@ -1,14 +1,19 @@
 language: python
-python:
-  - "2.7"
+matrix:
+  include:
+  - python: "2.7"
+    env: TOXENV=py27
+  - python: "2.7"
+    env: TOXENV=pep8py2
+  - python: "2.7"
+    env: TOXENV=packagepy2
 install:
-  - pip install -r requirements.txt pycodestyle
-before_script:
-  - mv CONFIG_SAMPLE.py CONFIG.py
+  - pip install --upgrade pip setuptools wheel tox
 script:
-  - pycodestyle --max-line-length=120 bamboo_ipa_sync *.py
-  - ./bamboo_ipa_sync -h
+  - tox
 notifications:
   email:
+    on_success: change
+    on_failure: always
     recipients:
       - peter@pakos.uk

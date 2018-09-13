@@ -1,6 +1,10 @@
 .idea
 *.pyc
 *.api
-CONFIG.py
-py27
-py36
+.tox
+*.cfg
+!setup.cfg
+*.egg-info
+build
+dist
+

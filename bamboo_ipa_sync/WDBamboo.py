@@ -1,20 +1,10 @@
 # -*- coding: utf-8 -*-
-"""This module implements communication with Bamboo HR.
+"""
+This module implements communication with Bamboo HR.
 
-Copyright (C) 2017 Peter Pakos <peter.pakos@wandisco.com>
+Author: Peter Pakos <peter.pakos@wandisco.com>
 
-This program is free software: you can redistribute it and/or modify
-it under the terms of the GNU General Public License as published by
-the Free Software Foundation, either version 3 of the License, or
-(at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program.  If not, see <http://www.gnu.org/licenses/>.
+Copyright (C) 2018 WANdisco
 """
 
 from __future__ import print_function
@@ -57,15 +47,14 @@ class WDBamboo(object):
         for employee in directory.iter('employee'):
             fields = {}
             for field in employee.iter('field'):
-                fields[field.attrib['id']] = field.text.encode('utf8').strip() if field.text else None
+                fields[field.attrib['id']] = field.text.encode('utf8').strip() if field.text else ''
             self._directory.update({employee.attrib['id']: fields})
         if len(self._directory) == 0:
             print('Bamboo data set is empty', file=sys.stderr)
 
     def display_data(self):
-        table = prettytable.PrettyTable(['ID', 'First', 'Last', 'Department', 'Job title', 'Mobile', 'Email',
-                                         'Division'],
-                                        sortby='Last')
+        table = prettytable.PrettyTable(['ID', 'First', 'Last', 'Preferred', 'Department', 'Job title', 'Mobile',
+                                         'Email', 'Division'], sortby='Last')
         table.align = 'l'
         number = 0
         for bamboo_id, bamboo_fields in self._directory.items():
@@ -74,6 +63,7 @@ class WDBamboo(object):
                 bamboo_id,
                 bamboo_fields.get('firstName'),
                 bamboo_fields.get('lastName'),
+                bamboo_fields.get('preferredName'),
                 bamboo_fields.get('department'),
                 bamboo_fields.get('jobTitle'),
                 bamboo_fields.get('mobilePhone'),

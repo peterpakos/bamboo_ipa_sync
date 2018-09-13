@@ -1,0 +1,9 @@
+[default]
+bamboo_url = https://api.bamboohr.com/api/gateway.php/company/v1/employees
+bamboo_api_key = ********************************
+bamboo_exclude_list = api.user@company.com
+bind_dn = cn=Directory Manager
+bind_pw = ********
+ipa_server = ipa01.company.com
+ipa_domain = ipa.company.com
+notification_to = address@company.com

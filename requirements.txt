@@ -1,5 +1,7 @@
+pplogger
+ppipa
+ppmail
+ppconfig
 tzlocal
 unidecode
 prettytable
-sendgrid
-pyldap
