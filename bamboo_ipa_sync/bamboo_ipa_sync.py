@@ -1,8 +1,9 @@
-#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""The script fetches data from Bamboo and compares it with data in FreeIPA's LDAP directory.
+"""Tool to synchronise FreeIPA with BambooHR
+
+The script compares data in Bamboo HR with data in FreeIPA's LDAP directory.
 Any changes to Bamboo records are synced to LDAP directory.
-Any accounts that do not exist in LDAP are created as FreeIPA stage accounts.
+Any accounts that do not exist in LDAP are created as stage accounts in FreeIPA.
 
 Author: Peter Pakos <peter.pakos@wandisco.com>
 
@@ -16,14 +17,14 @@ from pplogger import get_logger
 from ppipa import FreeIPAServer
 from ppmail import Mailer
 from ppconfig import Config
-from .WDBamboo import WDBamboo
+from ppbamboo import BambooHR
 
 import os
 import sys
+
 import argparse
 import datetime
 import tzlocal
-from unidecode import unidecode
 import prettytable
 
 
@@ -31,8 +32,7 @@ class Main(object):
     def __init__(self):
         self._app_name = os.path.splitext(__name__)[0].lower()
         self._parser, self._args = self._parse_args()
-        self._log = get_logger(name=__name__, debug=self._args.debug, quiet=self._args.quiet,
-                               verbose=self._args.verbose)
+        self._log = get_logger(name=__name__, debug=self._args.debug, quiet=self._args.quiet)
         self._log.debug(self._args)
 
         try:
@@ -50,12 +50,12 @@ class Main(object):
             self._ipa_server = self._config.get('ipa_server')
             self._ipa_domain = self._config.get('ipa_domain')
             self._notification_to = self._config.get('notification_to')
+            self._default_gid = self._config.get('default_gid')
         except NameError as e:
             self._log.critical(e)
             exit(1)
 
         self._force_all = False
-        self._mailer = Mailer()
 
         if isinstance(self._args.uid, list):
             self._force_uid = self._args.uid
@@ -65,8 +65,8 @@ class Main(object):
             self._force_uid = []
 
         if self._args.bamboo:
-            self._bamboo = WDBamboo(self._bamboo_url, self._bamboo_api_key)
-            self._bamboo.display_data()
+            self._bamboo = BambooHR(self._bamboo_url, self._bamboo_api_key)
+            self._display_bamboo_data()
 
         if self._args.ldap:
             self._ldap = FreeIPAServer(host=self._ipa_server, bindpw=self._bind_pw)
@@ -76,7 +76,8 @@ class Main(object):
             exit()
 
         if self._args.sync:
-            self._bamboo = WDBamboo(self._bamboo_url, self._bamboo_api_key)
+            self._mailer = Mailer()
+            self._bamboo = BambooHR(self._bamboo_url, self._bamboo_api_key)
             self._ldap = FreeIPAServer(host=self._ipa_server, bindpw=self._bind_pw)
             self.sync_data()
             exit()
@@ -84,7 +85,7 @@ class Main(object):
         self._parser.print_help()
 
     def _parse_args(self):
-        parser = argparse.ArgumentParser(description='Tool to synchronise FreeIPA with Bamboo HR', add_help=False)
+        parser = argparse.ArgumentParser(description='Tool to synchronise FreeIPA with BambooHR', add_help=False)
         parser.add_argument('--version', action='version', version='%s %s' % (self._app_name, __version__))
         parser.add_argument('-l', '--ldap', help='print LDAP data and exit', dest='ldap', action='store_true')
         parser.add_argument('-b', '--bamboo', help='print Bamboo data and exit', dest='bamboo', action='store_true')
@@ -97,9 +98,26 @@ class Main(object):
                             action='store_true')
         parser.add_argument('--help', action='help', help='show this help message and exit')
         parser.add_argument('--debug', action='store_true', dest='debug', help='debugging mode')
-        parser.add_argument('--verbose', action='store_true', dest='verbose', help='verbose logging mode')
         parser.add_argument('--quiet', action='store_true', dest='quiet', help="no console output")
         return parser, parser.parse_args()
+
+    def _display_bamboo_data(self):
+        table = prettytable.PrettyTable(['ID', 'First', 'Last', 'Preferred', 'Department', 'Job title', 'Mobile',
+                                         'Email', 'Division'], sortby='Last')
+        table.align = 'l'
+        for bamboo_id, bamboo_fields in self._bamboo.get_directory().items():
+            table.add_row([
+                bamboo_id,
+                bamboo_fields.get('firstName'),
+                bamboo_fields.get('lastName'),
+                bamboo_fields.get('preferredName'),
+                bamboo_fields.get('department'),
+                bamboo_fields.get('jobTitle'),
+                bamboo_fields.get('mobilePhone'),
+                bamboo_fields.get('workEmail'),
+                bamboo_fields.get('division')
+            ])
+        print(table)
 
     def _display_ldap_data(self):
         table = prettytable.PrettyTable(['ID', 'First', 'Last', 'EMail', 'Department', 'Job title', 'Division', 'UID'],
@@ -127,6 +145,7 @@ class Main(object):
         local_tz = tzlocal.get_localzone()
         now = local_tz.localize(datetime.datetime.now()).date()
 
+        printed = False
         for bamboo_id, bamboo_fields in directory.items():
 
             bamboo_email = str(bamboo_fields.get('workEmail')).lower()
@@ -135,11 +154,11 @@ class Main(object):
             if not bamboo_email or bamboo_email in self._bamboo_exclude_list:
                 continue
 
-            pref_first_name = unidecode(bamboo_fields['firstName'].decode('utf8'))
-            pref_last_name = unidecode(bamboo_fields['lastName'].decode('utf8'))
+            pref_first_name = bamboo_fields['firstName']
+            pref_last_name = bamboo_fields['lastName']
 
             if bamboo_fields.get('preferredName'):
-                pref_name_split = unidecode(bamboo_fields['preferredName'].decode('utf8')).split()
+                pref_name_split = bamboo_fields['preferredName'].split()
                 n = len(pref_name_split)
                 if n == 1:
                     pref_first_name = pref_name_split[0]
@@ -150,7 +169,6 @@ class Main(object):
             pref_first_name = self._capitalize(pref_first_name)
             pref_last_name = self._capitalize(pref_last_name)
 
-            printed = False
             result = self._ldap.find_users_by_email(email=bamboo_email)
 
             if len(result) == 0:
@@ -185,6 +203,8 @@ class Main(object):
                     if hire_date > now:
                         continue
 
+                if printed:
+                    print()
                 print('New Bamboo account: %s %s (%s)' % (
                     pref_first_name,
                     pref_last_name,
@@ -192,23 +212,24 @@ class Main(object):
                 print('- Job Title: %s' % bamboo_fields['jobTitle'])
                 print('- Department: %s' % bamboo_fields['department'])
                 print('- Location: %s' % fields['location'])
+                print('- Division: %s' % bamboo_fields['division'])
                 print('- Manager: %s' % fields['supervisor'])
                 print('- Start date: %s' % fields['hireDate'])
                 printed = True
 
                 if exists:
-                    print('%s LDAP account %s already exists\n' % (exists, bamboo_email_uid))
+                    print('%s LDAP account %s already exists' % (exists, bamboo_email_uid))
                     continue
 
                 if fields['terminationDate'] and fields['terminationDate'] != '0000-00-00':
-                    print('User leaving on %s, skipping account creation\n' % fields['terminationDate'])
+                    print('User leaving on %s, skipping account creation' % fields['terminationDate'])
                     continue
 
                 if fields['hireDate'] and fields['hireDate'] != '0000-00-00' and not self._force_all \
                         and bamboo_email_uid not in self._force_uid:
                     hire_date = local_tz.localize(datetime.datetime.strptime(fields['hireDate'], '%Y-%m-%d')).date()
                     if hire_date < now:
-                        print('Start date is in the past, skipping account creation (use -f to force)\n')
+                        print('Start date is in the past, skipping account creation (use -f to force)')
                         continue
 
                 if fields['supervisorEid']:
@@ -221,15 +242,16 @@ class Main(object):
                     user_created = False
                 else:
                     if self._ldap.add_user(
-                        bamboo_email_uid,
-                        bamboo_id,
-                        pref_first_name,
-                        pref_last_name,
-                        bamboo_fields['department'],
-                        bamboo_fields['jobTitle'],
-                        bamboo_fields['mobilePhone'],
-                        bamboo_fields['workEmail'],
-                        bamboo_fields['division']
+                        uid=bamboo_email_uid,
+                        employee_number=bamboo_id,
+                        given_name=pref_first_name,
+                        sn=pref_last_name,
+                        department_number=bamboo_fields['department'],
+                        title=bamboo_fields['jobTitle'],
+                        mobile=bamboo_fields['mobilePhone'],
+                        mail=bamboo_fields['workEmail'],
+                        ou=bamboo_fields['division'],
+                        gid=self._default_gid
                     ):
                         print('OK')
                         user_created = True
@@ -239,7 +261,7 @@ class Main(object):
 
                 print('Sending New Starter Notification: ', end='')
                 if not self._args.notify or self._args.noop:
-                    print('NO\n')
+                    print('NO')
                     continue
                 message = '''*Personal Information*
 Name: %s %s
@@ -304,11 +326,14 @@ Systems: %s
 
             elif len(result) == 1:
                 for user in result:
+                    user_printed = False
                     mobile = user.mobile[0] if len(user.mobile) > 0 else ''
                     phone = user.telephone_number[0] if len(user.telephone_number) > 0 else ''
 
                     if pref_first_name != user.given_name:
-                        printed = True
+                        if printed and not user_printed:
+                            print()
+                            user_printed = True
                         print('%s: updating givenName from \'%s\' to \'%s\': '
                               % (user.uid, user.given_name, pref_first_name), end='')
                         if self._args.noop:
@@ -320,7 +345,9 @@ Systems: %s
                                 print('FAIL')
 
                     if pref_last_name != user.sn:
-                        printed = True
+                        if printed and not user_printed:
+                            print()
+                            user_printed = True
                         print('%s: updating sn from \'%s\' to \'%s\': '
                               % (user.uid, user.sn, pref_last_name), end='')
                         if self._args.noop:
@@ -333,7 +360,9 @@ Systems: %s
 
                     cn = '%s %s' % (pref_first_name, pref_last_name)
                     if cn != user.cn:
-                        printed = True
+                        if printed and not user_printed:
+                            print()
+                            user_printed = True
                         print('%s: updating cn from \'%s\' to \'%s\': '
                               % (user.uid, user.cn, cn), end='')
                         if self._args.noop:
@@ -345,7 +374,9 @@ Systems: %s
                                 print('FAIL')
 
                     if bamboo_fields['mobilePhone'] != mobile and bamboo_fields['mobilePhone'] != 'None':
-                        printed = True
+                        if printed and not user_printed:
+                            print()
+                            user_printed = True
                         print('%s: updating mobile from \'%s\' to \'%s\': '
                               % (user.uid, mobile, bamboo_fields['mobilePhone']), end='')
                         if self._args.noop:
@@ -357,7 +388,9 @@ Systems: %s
                                 print('FAIL')
 
                     if bamboo_fields['mobilePhone'] != phone:
-                        printed = True
+                        if printed and not user_printed:
+                            print()
+                            user_printed = True
                         print('%s: updating telephoneNumber from \'%s\' to \'%s\': '
                               % (user.uid, phone, bamboo_fields['mobilePhone']), end='')
                         if self._args.noop:
@@ -369,7 +402,9 @@ Systems: %s
                                 print('FAIL')
 
                     if bamboo_fields['jobTitle'] != user.title:
-                        printed = True
+                        if printed and not user_printed:
+                            print()
+                            user_printed = True
                         print('%s: updating title from \'%s\' to \'%s\': '
                               % (user.uid, user.title, bamboo_fields['jobTitle']), end='')
                         if self._args.noop:
@@ -381,7 +416,9 @@ Systems: %s
                                 print('FAIL')
 
                     if bamboo_id != user.employee_number:
-                        printed = True
+                        if printed and not user_printed:
+                            print()
+                            user_printed = True
                         print('%s: updating employeeNumber from \'%s\' to \'%s\': '
                               % (user.uid, user.employee_number, bamboo_id), end='')
                         if self._args.noop:
@@ -393,7 +430,9 @@ Systems: %s
                                 print('FAIL')
 
                     if bamboo_fields['department'] != user.department_number:
-                        printed = True
+                        if printed and not user_printed:
+                            print()
+                            user_printed = True
                         print('%s: updating departmentNumber from \'%s\' to \'%s\': '
                               % (user.uid, user.department_number, bamboo_fields['department']), end='')
                         if self._args.noop:
@@ -406,7 +445,9 @@ Systems: %s
                                 print('FAIL')
 
                     if bamboo_fields['division'] != user.ou:
-                        printed = True
+                        if printed and not user_printed:
+                            print()
+                            user_printed = True
                         print('%s: updating ou from \'%s\' to \'%s\': '
                               % (user.uid, user.ou, bamboo_fields['division']), end='')
                         if self._args.noop:
@@ -416,12 +457,14 @@ Systems: %s
                                 print('OK')
                             else:
                                 print('FAIL')
+
+                    if user_printed:
+                        printed = True
+
             else:
-                printed = True
                 print('More than one LDAP account found with email address: %s' % bamboo_fields['workEmail'],
                       file=sys.stderr)
-            if printed:
-                print()
+                printed = True
 
 
 def main():

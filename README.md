@@ -1,5 +1,5 @@
 # bamboo_ipa_sync
-Tool to synchronise FreeIPA with Bamboo HR
+Tool to synchronise FreeIPA with BambooHR
 
 PyPI package: [bamboo_ipa_sync](https://pypi.python.org/pypi/bamboo_ipa_sync)
 
@@ -30,7 +30,7 @@ how to configure it.
 ```
 $ bamboo_ipa_sync --help
 usage: bamboo_ipa_sync [--version] [-l] [-b] [-s] [-n] [-f [UID [UID ...]]]
-                       [-N] [--help] [--debug] [--verbose] [--quiet]
+                       [-N] [--help] [--debug] [--quiet]
 
 Tool to synchronise FreeIPA with Bamboo HR
 
@@ -45,6 +45,5 @@ optional arguments:
   -N, --noop            dry-run mode
   --help                show this help message and exit
   --debug               debugging mode
-  --verbose             verbose logging mode
   --quiet               no console output
 ```

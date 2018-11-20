@@ -2,6 +2,6 @@ pplogger
 ppipa
 ppmail
 ppconfig
+ppbamboo
 tzlocal
-unidecode
 prettytable
