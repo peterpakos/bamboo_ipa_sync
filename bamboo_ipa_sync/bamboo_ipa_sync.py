@@ -333,7 +333,6 @@ Systems: %s
                     if pref_first_name != user.given_name:
                         if printed and not user_printed:
                             print()
-                            user_printed = True
                         print('%s: updating givenName from \'%s\' to \'%s\': '
                               % (user.uid, user.given_name, pref_first_name), end='')
                         if self._args.noop:
@@ -343,6 +342,7 @@ Systems: %s
                                 print('OK')
                             else:
                                 print('FAIL')
+                        user_printed = True
 
                     if pref_last_name != user.sn:
                         if printed and not user_printed:
@@ -362,7 +362,6 @@ Systems: %s
                     if cn != user.cn:
                         if printed and not user_printed:
                             print()
-                            user_printed = True
                         print('%s: updating cn from \'%s\' to \'%s\': '
                               % (user.uid, user.cn, cn), end='')
                         if self._args.noop:
@@ -372,6 +371,7 @@ Systems: %s
                                 print('OK')
                             else:
                                 print('FAIL')
+                        user_printed = True
 
                     if bamboo_fields['mobilePhone'] != mobile and bamboo_fields['mobilePhone'] != 'None':
                         if printed and not user_printed:
@@ -390,7 +390,6 @@ Systems: %s
                     if bamboo_fields['mobilePhone'] != phone:
                         if printed and not user_printed:
                             print()
-                            user_printed = True
                         print('%s: updating telephoneNumber from \'%s\' to \'%s\': '
                               % (user.uid, phone, bamboo_fields['mobilePhone']), end='')
                         if self._args.noop:
@@ -400,11 +399,11 @@ Systems: %s
                                 print('OK')
                             else:
                                 print('FAIL')
+                        user_printed = True
 
                     if bamboo_fields['jobTitle'] != user.title:
                         if printed and not user_printed:
                             print()
-                            user_printed = True
                         print('%s: updating title from \'%s\' to \'%s\': '
                               % (user.uid, user.title, bamboo_fields['jobTitle']), end='')
                         if self._args.noop:
@@ -414,11 +413,11 @@ Systems: %s
                                 print('OK')
                             else:
                                 print('FAIL')
+                        user_printed = True
 
                     if bamboo_id != user.employee_number:
                         if printed and not user_printed:
                             print()
-                            user_printed = True
                         print('%s: updating employeeNumber from \'%s\' to \'%s\': '
                               % (user.uid, user.employee_number, bamboo_id), end='')
                         if self._args.noop:
@@ -428,11 +427,11 @@ Systems: %s
                                 print('OK')
                             else:
                                 print('FAIL')
+                        user_printed = True
 
                     if bamboo_fields['department'] != user.department_number:
                         if printed and not user_printed:
                             print()
-                            user_printed = True
                         print('%s: updating departmentNumber from \'%s\' to \'%s\': '
                               % (user.uid, user.department_number, bamboo_fields['department']), end='')
                         if self._args.noop:
@@ -443,11 +442,11 @@ Systems: %s
                                 print('OK')
                             else:
                                 print('FAIL')
+                        user_printed = True
 
                     if bamboo_fields['division'] != user.ou:
                         if printed and not user_printed:
                             print()
-                            user_printed = True
                         print('%s: updating ou from \'%s\' to \'%s\': '
                               % (user.uid, user.ou, bamboo_fields['division']), end='')
                         if self._args.noop:
@@ -457,11 +456,14 @@ Systems: %s
                                 print('OK')
                             else:
                                 print('FAIL')
+                        user_printed = True
 
                     if user_printed:
                         printed = True
 
             else:
+                if printed:
+                    print()
                 print('More than one LDAP account found with email address: %s' % bamboo_fields['workEmail'],
                       file=sys.stderr)
                 printed = True
