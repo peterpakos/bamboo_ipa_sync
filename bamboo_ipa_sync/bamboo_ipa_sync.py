@@ -249,7 +249,7 @@ class Main(object):
                         department_number=bamboo_fields['department'],
                         title=bamboo_fields['jobTitle'],
                         mobile=bamboo_fields['mobilePhone'],
-                        mail=bamboo_fields['workEmail'],
+                        mail=bamboo_email,
                         ou=bamboo_fields['division'],
                         gid=self._default_gid
                     ):
