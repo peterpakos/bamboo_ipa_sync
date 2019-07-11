@@ -50,6 +50,7 @@ class Main(object):
             self._ipa_server = self._config.get('ipa_server')
             self._ipa_domain = self._config.get('ipa_domain')
             self._notification_to = self._config.get('notification_to')
+            self._notification_cc_uk = self._config.get('notification_cc_uk')
             self._default_gid = self._config.get('default_gid')
         except NameError as e:
             self._log.critical(e)
@@ -312,10 +313,15 @@ Systems: %s
 
                 if not supervisor_email:
                     supervisor_email = self._notification_to
+
+                cc = [supervisor_email]
+                if self._notification_cc_uk and bamboo_fields['division'] == 'UK':
+                    cc.append(self._notification_cc_uk)
+
                 if self._mailer.send(
                         sender=supervisor_email,
                         recipients=[self._notification_to],
-                        cc=[supervisor_email],
+                        cc=cc,
                         subject='New Starter Notification: %s %s' % (pref_first_name, pref_last_name),
                         message=message,
                         code=True

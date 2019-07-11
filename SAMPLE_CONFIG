@@ -7,4 +7,5 @@ bind_pw = ********
 ipa_server = ipa01.company.com
 ipa_domain = ipa.company.com
 notification_to = address@company.com
+notification_cc_uk =
 default_gid = -1
